@@ -20,6 +20,7 @@ def build_models(config):
     Generator = generator_dict[config['generator']['name']]
     Discriminator = discriminator_dict[config['discriminator']['name']]
 
+    print(config['data']['img_size'])
     # Build models
     generator = Generator(
         z_dim=config['z_dist']['dim'],

@@ -6,7 +6,7 @@ import numpy as np
 
 def get_dataset(name, data_dir, size=64, lsun_categories=None):
     transform = transforms.Compose([
-        transforms.Resize(size),
+        #transforms.Resize(size),
         transforms.CenterCrop(size),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),

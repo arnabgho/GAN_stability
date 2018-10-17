@@ -206,10 +206,10 @@ while True:
                 logger.add_imgs(x, '%04d' % y_inst, it)
 
         # (ii) Compute inception if necessary
-        if inception_every > 0 and ((it + 1) % inception_every) == 0:
-            inception_mean, inception_std = evaluator.compute_inception_score()
-            logger.add('inception_score', 'mean', inception_mean, it=it)
-            logger.add('inception_score', 'stddev', inception_std, it=it)
+        #if inception_every > 0 and ((it + 1) % inception_every) == 0:
+        #    inception_mean, inception_std = evaluator.compute_inception_score()
+        #    logger.add('inception_score', 'mean', inception_mean, it=it)
+        #    logger.add('inception_score', 'stddev', inception_std, it=it)
 
         # (iii) Backup if necessary
         if ((it + 1) % backup_every) == 0:
