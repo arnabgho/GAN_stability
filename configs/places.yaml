@@ -7,17 +7,25 @@ data:
   img_size: 128
   nlabels: 3
 generator:
-  name: resnet2
+  name: gated_resnet
   kwargs:
     nfilter: 64
     nfilter_max: 1024
-    embed_size: 256
+    embed_size: 64 #256
+    gate_affine: False
+    ngf_gate: 16
+    ngres_gate: 4
+    dropout_gate: 0.0    
 discriminator:
-  name: resnet2
+  name: gated_resnet
   kwargs:
     nfilter: 64
     nfilter_max: 1024
-    embed_size: 256
+    embed_size: 64 #256
+    gate_affine: False
+    ndf_gate: 16  
+    ndres_gate: 4   
+    dropout_gate: 0.0    
 z_dist:
   type: gauss
   dim: 256
@@ -26,7 +34,7 @@ training:
   gan_type: standard
   reg_type: real
   reg_param: 10.
-  batch_size: 8
+  batch_size: 2
   nworkers: 32
   take_model_average: true
   model_average_beta: 0.999
@@ -46,7 +54,7 @@ training:
   d_steps: 1
   equalize_lr: false
 test:
-  batch_size: 8
+  batch_size: 2
   sample_size: 32
   sample_nrow: 8
   use_model_average: true

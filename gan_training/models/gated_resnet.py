@@ -12,12 +12,11 @@ class Generator(nn.Module):
         s0 = self.s0 = size // 32
         nf = self.nf = nfilter
         self.z_dim = z_dim
-
         ### to be initialized and passed on from args
-        # ngf_gate
-        # ngres_gate
-        # dropout_gate
-        # gate_affine
+        ngf_gate = kwargs['ngf_gate']
+        ngres_gate= kwargs['ngres_gate']
+        dropout_gate=kwargs['dropout_gate']
+        gate_affine=kwargs['gate_affine']
         # might have to change the embed_size(too large at the moment)
         self.ngres=12
         self.gate_affine = gate_affine
@@ -85,7 +84,7 @@ class Generator(nn.Module):
 
         output_gate = self.gate(yembed)
         output_gate_mult = self.gate_mult(output_gate)
-        if self.opt.gate_affine:
+        if self.gate_affine:
             output_gate_add = self.gate_add(output_gate)
 
         #yz = torch.cat([z, yembed], dim=1)
@@ -116,7 +115,7 @@ class Generator(nn.Module):
         #out = self.resnet_5_1(out)
 
         for i in range(self.ngres):
-            if i%3==2:
+            if i>0 and i%2==0:
                 out = F.upsample(out, scale_factor=2)
             alpha=output_gate_mult[:,i]
             alpha=alpha.resize(batch_size,1,1,1)
@@ -125,7 +124,7 @@ class Generator(nn.Module):
                 beta=beta.resize(batch_size,1,1,1)
                 out = self.resnet[i](out,alpha,beta)
             else:
-                out = self.resnet[i](out,alpha,beta)
+                out = self.resnet[i](out,alpha)
 
         out = self.conv_img(actvn(out))
         out = F.tanh(out)
@@ -141,10 +140,10 @@ class Discriminator(nn.Module):
         nf = self.nf = nfilter
         ny = nlabels
         ### to be initialized and passed on from args
-        # ndf_gate
-        # ndres_gate
-        # dropout_gate
-        # gate_affine
+        ndf_gate = kwargs['ndf_gate']
+        ndres_gate = kwargs['ndres_gate']
+        dropout_gate = kwargs['dropout_gate']
+        gate_affine = kwargs['gate_affine']
         # might have to change the embed_size(too large at the moment)
         self.ndres=12
         self.gate_affine=gate_affine
@@ -153,23 +152,23 @@ class Discriminator(nn.Module):
         self.conv_img = spectral_norm(nn.Conv2d(3, 1*nf, 3, padding=1))
 
         resnet = []
-        resnet += GatedResnetBlock(1*nf, 1*nf)
-        resnet += GatedResnetBlock(1*nf, 2*nf)
+        resnet += [GatedResnetBlock(1*nf, 1*nf)]
+        resnet += [GatedResnetBlock(1*nf, 2*nf)]
 
-        resnet += GatedResnetBlock(2*nf, 2*nf)
-        resnet += GatedResnetBlock(2*nf, 4*nf)
+        resnet += [GatedResnetBlock(2*nf, 2*nf)]
+        resnet += [GatedResnetBlock(2*nf, 4*nf)]
 
-        resnet += GatedResnetBlock(4*nf, 4*nf)
-        resnet += GatedResnetBlock(4*nf, 8*nf)
+        resnet += [GatedResnetBlock(4*nf, 4*nf)]
+        resnet += [GatedResnetBlock(4*nf, 8*nf)]
 
-        resnet += GatedResnetBlock(8*nf, 8*nf)
-        resnet += GatedResnetBlock(8*nf, 16*nf)
+        resnet += [GatedResnetBlock(8*nf, 8*nf)]
+        resnet += [GatedResnetBlock(8*nf, 16*nf)]
 
-        resnet += GatedResnetBlock(16*nf, 16*nf)
-        resnet += GatedResnetBlock(16*nf, 16*nf)
+        resnet += [GatedResnetBlock(16*nf, 16*nf)]
+        resnet += [GatedResnetBlock(16*nf, 16*nf)]
 
-        resnet += GatedResnetBlock(16*nf, 16*nf)
-        resnet += GatedResnetBlock(16*nf, 16*nf)
+        resnet += [GatedResnetBlock(16*nf, 16*nf)]
+        resnet += [GatedResnetBlock(16*nf, 16*nf)]
 
         self.resnet=nn.Sequential(*resnet)
 
@@ -205,10 +204,10 @@ class Discriminator(nn.Module):
     def forward(self, x, y):
         assert(x.size(0) == y.size(0))
         batch_size = x.size(0)
-
+        yembed = self.embedding(y)
         output_gate = self.gate(yembed)
         output_gate_mult = self.gate_mult(output_gate)
-        if self.opt.gate_affine:
+        if self.gate_affine:
             output_gate_add = self.gate_add(output_gate)
 
         out = self.conv_img(x)
@@ -237,7 +236,7 @@ class Discriminator(nn.Module):
         #out = self.resnet_5_1(out)
 
         for i in range(self.ndres):
-            if i%3==2:
+            if i>0 and i%2==0:
                 out = F.avg_pool2d(out, 3, stride=2, padding=1)
             alpha=output_gate_mult[:,i]
             alpha=alpha.resize(batch_size,1,1,1)
@@ -246,7 +245,7 @@ class Discriminator(nn.Module):
                 beta=beta.resize(batch_size,1,1,1)
                 out = self.resnet[i](out,alpha,beta)
             else:
-                out = self.resnet[i](out,alpha,beta)
+                out = self.resnet[i](out,alpha)
 
         out = out.view(batch_size, 16*self.nf*self.s0*self.s0)
         out = self.fc(actvn(out))
@@ -336,3 +335,36 @@ class GatedResnetBlock(nn.Module):
 def actvn(x):
     out = F.leaky_relu(x, 2e-1)
     return out
+
+
+class ResBlock1D(nn.Module):
+    def __init__(self,num_neurons,dropout=0.0):
+        super(ResBlock1D, self).__init__()
+
+        model = []
+        model += [ nn.Conv1d( num_neurons , num_neurons  , kernel_size=3, stride=1,padding=1)  ]
+        model += [nn.BatchNorm1d(num_neurons)] # Just testing might be removed
+        model += [nn.ReLU(inplace=True)]
+        model += [ nn.Conv1d( num_neurons , num_neurons  , kernel_size=3, stride=1,padding=1)  ]
+        model += [nn.BatchNorm1d(num_neurons)] # Just testing might be removed
+        model += [nn.ReLU()]
+        if dropout > 0:
+            model += [nn.Dropout(p=dropout)]
+        self.model = nn.Sequential(*model)
+
+    def forward(self,x):
+        residual=x
+        out=self.model(x)
+        out+=residual
+        return out
+
+
+
+class Reshape(nn.Module):
+    def __init__(self, *args):
+        super(Reshape, self).__init__()
+        self.shape = args
+
+    def forward(self, x):
+        return x.view(self.shape)
+
